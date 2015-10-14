@@ -20,7 +20,7 @@ import java.util.logging.Logger;
 public class GossipServer implements Runnable {
 	
 	private static final Logger logger = Logger.getLogger(GossipServer.class.getCanonicalName());
-	private static final int PACKET_PAYLOAD_SIZE = 8; // 8 bytes for 1 long string
+	private static final int PACKET_PAYLOAD_SIZE = 4; // 8 bytes for 1 long string
 	private AtomicBoolean loopControl = new AtomicBoolean(true);
 	private AtomicInteger timer = new AtomicInteger(0);
 	private Map<InetAddress, Long> peers = new ConcurrentHashMap<>();
@@ -40,7 +40,7 @@ public class GossipServer implements Runnable {
 			
 			@Override
 			public void run() {
-				receptionLogic(dgSocket);
+				receptionLoop(dgSocket);
 			}
 		});
 	}
@@ -53,13 +53,15 @@ public class GossipServer implements Runnable {
 			while(loopControl.get()) {
 				// send gossip
 				packet.setPort(destPort);
-				packet.setData(NetUtils.longToBytes(System.currentTimeMillis()));
 				for(InetAddress peer:peers.keySet()) {
-					try {
-						packet.setAddress(peer);
-						dgSocket.send(packet);
-					} catch (IOException e) {
-						logger.log(Level.SEVERE, "Failed to send gossip packet", e);
+					for(InetAddress unicast:peers.keySet()) {
+						try {
+							packet.setAddress(peer);
+							packet.setData(unicast.getAddress());
+							dgSocket.send(packet);
+						} catch (IOException e) {
+							logger.log(Level.SEVERE, "Failed to send gossip packet", e);
+						}
 					}
 				}
 				Thread.sleep(timer.get()+rand.nextInt(100));
@@ -69,15 +71,21 @@ public class GossipServer implements Runnable {
 		}
 	}
 	
-	protected void receptionLogic(final DatagramSocket dgSocket) {
+	protected void receptionLoop(final DatagramSocket dgSocket) {
 		byte[] buffer = new byte[PACKET_PAYLOAD_SIZE];
 		DatagramPacket packet = new DatagramPacket(buffer, PACKET_PAYLOAD_SIZE);
 		while(loopControl.get()) {
 			try {
 				dgSocket.receive(packet);
+				byte[] data = packet.getData();
 				if(!peers.containsKey(packet.getAddress())) {
-					logger.info("Discovered new peer:"+packet.getAddress().getHostAddress());
-					peers.put(packet.getAddress(), NetUtils.bytesToLong(packet.getData()));
+					logger.info("Added direct peer:"+packet.getAddress().getHostAddress());
+				}
+				peers.put(packet.getAddress(), System.currentTimeMillis());
+				InetAddress payloadAddress = InetAddress.getByAddress(data);
+				if(!peers.containsKey(payloadAddress)) {
+					logger.info("Discovered new peer:"+payloadAddress.getHostAddress());
+					peers.put(payloadAddress, -1L);
 				}
 			} catch (IOException e) {
 				logger.log(Level.SEVERE, "Error receiving gossip packet", e);

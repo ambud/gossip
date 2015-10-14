@@ -52,5 +52,14 @@ public class NetUtils {
 	    }
 	    return result;
 	}
+	
+	public static int stringIPtoInt(String ip){
+		String[] ipParts = ip.split("\\.");
+		int intIP = 0;
+		for (int i = 0; i < 4; i++) {
+			intIP += Integer.parseInt(ipParts[i]) << (24 - (8 * i));
+		}
+		return intIP;
+	}
 
 }

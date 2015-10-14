@@ -34,6 +34,7 @@ public class TestGossipServer {
 			}
 		});
 		Thread.sleep(200);
+		System.err.println(server2.getPeers());
 		assertTrue(server2.getPeers().contains(InetAddress.getByName(Inet4Address.getLocalHost().getHostAddress())));
 	}
 	
