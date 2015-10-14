@@ -17,6 +17,28 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * This gossip service is a peer discovery service using some seed peers across a cluster.
+ * You can read more about gossip <a href=https://en.wikipedia.org/wiki/Gossip_protocol>here</a><br><br>
+ * This is a vanilla implementation that can be used as is to be a part of a clustering software.<br><br>
+ * 
+ * Gossip discovery is based on an eventual consistency model i.e. not all peers in the cluster will
+ * be discovered immediately but may take a few seconds to a few cycles.<br><br>
+ * 
+ * This implementation uses unicast and sends a fixed length discovery datagram of 4 bytes payload. The 
+ * payload contains pointer to another known peer. These datagrams are sent at a variable time interval with a jitter
+ * to allow hosts to be discovered aggressively at the start but maintained passively later.<br><br>
+ * 
+ * When a new peer is discovered by receiving a direct unicast datagram from the host it's last contact timestamp
+ * is updated in a {@link ConcurrentHashMap} which is the data structure used by this gossip implementation to
+ * maintain the discovery state.<br><br>
+ * 
+ * When a peer is discovered indirectly i.e. as a payload from another direct peer then only an entry for it is 
+ * created in the map however the timestamp is initialized set to -1.
+ * 
+ * @author ambudsharma
+ *
+ */
 public class GossipServer implements Runnable {
 	
 	private static final Logger logger = Logger.getLogger(GossipServer.class.getCanonicalName());
